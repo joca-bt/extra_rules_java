@@ -1,0 +1,2 @@
+build --spawn_strategy=local
+build --symlink_prefix=.bazel/
