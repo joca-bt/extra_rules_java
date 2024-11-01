@@ -1,0 +1,5 @@
+module(
+    name = "extra_rules_java",
+    version = "1.0",
+    bazel_compatibility = [">=7.0.0"],
+)
