@@ -40,6 +40,10 @@ import extrarulesjava.jarloader.launch.LaunchedClassLoader;
  */
 public abstract class JarUrlClassLoader extends URLClassLoader {
 
+	static {
+		ClassLoader.registerAsParallelCapable();
+	}
+
 	private final URL[] urls;
 
 	private final boolean hasJarUrls;

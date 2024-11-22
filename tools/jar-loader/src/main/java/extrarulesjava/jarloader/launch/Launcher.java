@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2023 the original author or authors.
+ * Copyright 2012-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,16 @@
 
 package extrarulesjava.jarloader.launch;
 
+import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.util.Collection;
 import java.util.Set;
+import java.util.jar.Attributes;
+import java.util.jar.Manifest;
 
+import extrarulesjava.jarloader.launch.Archive.Entry;
 import extrarulesjava.jarloader.net.protocol.Handlers;
 
 /**
@@ -30,9 +34,16 @@ import extrarulesjava.jarloader.net.protocol.Handlers;
  *
  * @author Phillip Webb
  * @author Dave Syer
+ * @author Scott Frederick
  * @since 3.2.0
  */
 public abstract class Launcher {
+
+	protected static final String BOOT_CLASSPATH_INDEX_ATTRIBUTE = "Spring-Boot-Classpath-Index";
+
+	protected static final String DEFAULT_CLASSPATH_INDEX_FILE_NAME = "classpath.idx";
+
+	protected ClassPathIndexFile classPathIndex;
 
 	/**
 	 * Launch the application. This method is the initial entry point that should be
@@ -95,6 +106,21 @@ public abstract class Launcher {
 		return (archive != null) && archive.isExploded();
 	}
 
+	ClassPathIndexFile getClassPathIndex(Archive archive) throws IOException {
+		if (!archive.isExploded()) {
+			return null; // Regular archives already have a defined order
+		}
+		String location = getClassPathIndexFileLocation(archive);
+		return ClassPathIndexFile.loadIfPossible(archive.getRootDirectory(), location);
+	}
+
+	private String getClassPathIndexFileLocation(Archive archive) throws IOException {
+		Manifest manifest = archive.getManifest();
+		Attributes attributes = (manifest != null) ? manifest.getMainAttributes() : null;
+		String location = (attributes != null) ? attributes.getValue(BOOT_CLASSPATH_INDEX_ATTRIBUTE) : null;
+		return (location != null) ? location : getEntryPathPrefix() + DEFAULT_CLASSPATH_INDEX_FILE_NAME;
+	}
+
 	/**
 	 * Return the archive being launched or {@code null} if there is no archive.
 	 * @return the launched archive
@@ -114,5 +140,38 @@ public abstract class Launcher {
 	 * @throws Exception if the class path archives cannot be obtained
 	 */
 	protected abstract Set<URL> getClassPathUrls() throws Exception;
+
+	/**
+	 * Return the path prefix for relevant entries in the archive.
+	 * @return the entry path prefix
+	 */
+	protected String getEntryPathPrefix() {
+		return "BOOT-INF/";
+	}
+
+	/**
+	 * Determine if the specified entry is a nested item that should be added to the
+	 * classpath.
+	 * @param entry the entry to check
+	 * @return {@code true} if the entry is a nested item (jar or directory)
+	 */
+	protected boolean isIncludedOnClassPath(Archive.Entry entry) {
+		return isLibraryFileOrClassesDirectory(entry);
+	}
+
+	protected boolean isLibraryFileOrClassesDirectory(Archive.Entry entry) {
+		String name = entry.name();
+		if (entry.isDirectory()) {
+			return name.equals("BOOT-INF/classes/");
+		}
+		return name.startsWith("BOOT-INF/lib/");
+	}
+
+	protected boolean isIncludedOnClassPathAndNotIndexed(Entry entry) {
+		if (!isIncludedOnClassPath(entry)) {
+			return false;
+		}
+		return (this.classPathIndex == null) || !this.classPathIndex.containsEntry(entry.name());
+	}
 
 }

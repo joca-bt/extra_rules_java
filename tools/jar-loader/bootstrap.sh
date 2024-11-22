@@ -2,7 +2,7 @@
 
 shopt -s globstar
 
-VERSION='3.3.0'
+VERSION='3.4.0'
 
 mkdir -p src/main/java/extrarulesjava/jarloader/
 
