@@ -1,3 +1,5 @@
+load("@rules_java//java:defs.bzl", "JavaInfo")
+
 def _executable_jar_impl(ctx):
     output = ctx.actions.declare_file("{}.jar".format(ctx.label.name))
 
