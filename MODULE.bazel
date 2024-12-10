@@ -1,5 +1,8 @@
 module(
     name = "extra_rules_java",
     version = "1.0",
-    bazel_compatibility = [">=7.0.0"],
+    bazel_compatibility = [">=8.0.0"],
 )
+
+# https://github.com/bazelbuild/rules_java/
+bazel_dep(name = "rules_java", version = "8.6.1")
