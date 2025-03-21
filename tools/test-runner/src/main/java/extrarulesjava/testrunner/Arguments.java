@@ -37,7 +37,7 @@ class Arguments {
         }
 
         // Adjust for IntelliJ IDEA.
-        filter = filter.replaceAll("[$\\\\]", "");
+        filter = filter.replaceAll("\\\\", "");
 
         for (var component : filter.split("\\|(?![^()]+\\))")) {
             String[] names = component.split("#");
