@@ -3,8 +3,13 @@ load(":toolchains.bzl", "toolchains")
 
 def _executable_jar_impl(ctx):
     jar = _build_jar(ctx)
+    script = _build_script(ctx, jar)
+
     files = depset([jar])
-    return [DefaultInfo(files = files)]
+    executable = script
+    runfiles = ctx.runfiles(files = [jar], transitive_files = toolchains.execution_toolchain(ctx).files)
+
+    return [DefaultInfo(files = files, executable = executable, runfiles = runfiles)]
 
 def _build_jar(ctx):
     output = ctx.actions.declare_file("{}.jar".format(ctx.label.name))
@@ -39,6 +44,21 @@ Start-Class: {}\
 
     return output
 
+def _build_script(ctx, jar):
+    output = ctx.actions.declare_file("{}.sh".format(ctx.label.name))
+
+    ctx.actions.expand_template(
+        template = ctx.file._wrapper,
+        output = output,
+        substitutions = {
+            "JAVA=": "JAVA='{}'".format(toolchains.execution_java(ctx)),
+            "JAR=": "JAR='{}'".format(jar.short_path),
+        },
+        is_executable = True,
+    )
+
+    return output
+
 executable_jar = rule(
     doc = "Builds an executable jar from a set of libraries.",
     implementation = _executable_jar_impl,
@@ -55,8 +75,14 @@ executable_jar = rule(
             default = "//tools/jar-loader",
             allow_single_file = True,
         ),
+        "_wrapper": attr.label(
+            default = ":wrapper.sh",
+            allow_single_file = True,
+        ),
     },
     toolchains = [
         toolchains.COMPILATION_TOOLCHAIN_TYPE,
+        toolchains.EXECUTION_TOOLCHAIN_TYPE,
     ],
+    executable = True,
 )
