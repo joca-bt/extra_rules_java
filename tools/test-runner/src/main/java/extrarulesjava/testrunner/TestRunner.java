@@ -4,7 +4,7 @@ import java.io.PrintWriter;
 import java.nio.file.Path;
 
 import org.junit.platform.console.ConsoleLauncher;
-import org.junit.platform.console.options.CommandResult;
+import org.junit.platform.console.command.CommandResult;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 

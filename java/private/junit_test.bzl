@@ -15,7 +15,7 @@ def _junit_test_impl(name, **kwargs):
     )
 
 junit_test = macro(
-    doc = "Builds JUnit 5 tests.",
+    doc = "Builds JUnit 6 tests.",
     implementation = _junit_test_impl,
     inherit_attrs = java_test,
     attrs = {
