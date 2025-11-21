@@ -2,7 +2,7 @@
 
 shopt -s globstar
 
-VERSION='3.5.0'
+VERSION='4.0.0'
 
 mkdir -p src/main/java/extrarulesjava/jarloader/
 
@@ -10,8 +10,8 @@ curl -L https://github.com/spring-projects/spring-boot/archive/v${VERSION}.tar.g
 
 tar -x -f spring-boot.tar.gz \
        -C src/main/java/extrarulesjava/jarloader/ \
-       spring-boot-${VERSION}/spring-boot-project/spring-boot-tools/spring-boot-loader/src/main/java/org/springframework/boot/loader/ \
-       --strip-components=11
+       spring-boot-${VERSION}/loader/spring-boot-loader/src/main/java/org/springframework/boot/loader/ \
+       --strip-components=10
 
 rm -rf src/**/{jarmode,nio}/ \
        src/**/{JarLauncher,JarModeRunner,PropertiesLauncher,SystemPropertyUtils,WarLauncher}.java \

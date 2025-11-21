@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2024 the original author or authors.
+ * Copyright 2012-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -90,9 +90,23 @@ public abstract class Launcher {
 	protected void launch(ClassLoader classLoader, String mainClassName, String[] args) throws Exception {
 		Thread.currentThread().setContextClassLoader(classLoader);
 		Class<?> mainClass = Class.forName(mainClassName, false, classLoader);
-		Method mainMethod = mainClass.getDeclaredMethod("main", String[].class);
+		Method mainMethod = getMainMethod(mainClass);
 		mainMethod.setAccessible(true);
-		mainMethod.invoke(null, new Object[] { args });
+		if (mainMethod.getParameterCount() == 0) {
+			mainMethod.invoke(null);
+		}
+		else {
+			mainMethod.invoke(null, new Object[] { args });
+		}
+	}
+
+	private Method getMainMethod(Class<?> mainClass) throws Exception {
+		try {
+			return mainClass.getDeclaredMethod("main", String[].class);
+		}
+		catch (NoSuchMethodException ex) {
+			return mainClass.getDeclaredMethod("main");
+		}
 	}
 
 	/**
