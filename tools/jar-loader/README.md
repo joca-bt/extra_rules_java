@@ -1,4 +1,4 @@
-A jar loader that supports nested jars, based on Spring Boot's [executable jar format](https://docs.spring.io/spring-boot/3.5/specification/executable-jar/).
+A jar loader that supports nested jars, based on Spring Boot's [executable jar format](https://docs.spring.io/spring-boot/4.0/specification/executable-jar/).
 
 Compatible jars should be structured as follows:
 
