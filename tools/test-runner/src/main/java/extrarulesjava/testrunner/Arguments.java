@@ -78,7 +78,7 @@ class Arguments {
         while (true) {
             try {
                 return Class.forName(name);
-            } catch (Exception exception) {
+            } catch (Exception ignored) {
                 int i = name.lastIndexOf('.');
 
                 if (i == -1) {
