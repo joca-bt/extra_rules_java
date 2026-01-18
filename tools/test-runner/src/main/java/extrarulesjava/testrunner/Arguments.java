@@ -5,21 +5,21 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import org.junit.platform.commons.JUnitException;
+import org.junit.platform.commons.support.ReflectionSupport;
 
 class Arguments {
     public static String[] getArguments(Path jar, String filter, Path report) {
         List<String> arguments = new ArrayList<>();
 
         arguments.add("execute");
-        arguments.add("--details=none");
         arguments.add("--disable-banner");
+        arguments.add("--details=none");
         arguments.add("--fail-if-no-tests");
-        arguments.add("--reports-dir=%s".formatted(report.getParent()));
         addSelectors(arguments, jar, filter);
+        arguments.add("--reports-dir=%s".formatted(report.getParent()));
 
         return arguments.toArray(new String[0]);
     }
@@ -27,8 +27,8 @@ class Arguments {
     /**
      * Adds selectors based on the --test_filter option.
      *
-     * The --test_filter option specifies which tests to run. This option is provided to the test
-     * runner through the TESTBRIDGE_TEST_ONLY environment variable.
+     * The --test_filter option specifies which tests to run and is passed to the test runner
+     * through the TESTBRIDGE_TEST_ONLY environment variable.
      */
     private static void addSelectors(List<String> arguments, Path jar, String filter) {
         if (filter == null) {
@@ -36,71 +36,63 @@ class Arguments {
             return;
         }
 
-        // Adjust for IntelliJ IDEA.
-        filter = filter.replaceAll("\\\\", "");
+        // Remove artifacts added by IntelliJ IDEA.
+        filter = filter.replaceAll("\\$", "");
 
-        for (var component : filter.split("\\|(?![^()]+\\))")) {
-            String[] names = component.split("#");
+        for (var selector : filter.split(",")) {
+            String[] components = selector.split("[.\\[\\]]");
 
-            Class<?> clazz = findClass(names[0]);
+            Class<?> clazz = findClass(jar, components[0]);
 
-            if (names.length == 1) {
+            if (components.length == 1) {
                 arguments.add("--select-class=%s".formatted(clazz.getName()));
                 continue;
             }
 
-            for (var spec : names[1].split("\\|")) {
-                // Clean up.
-                spec = spec.replaceAll("^\\(|\\)$|(?<=]).+", "");
+            Method method = findMethod(clazz, components[1]);
+            String parameters = getParameters(method);
 
-                String[] elements = spec.split("(?=\\[)");
-
-                Method method = findMethod(clazz, elements[0]);
-                String parameters = Arrays.stream(method.getParameterTypes())
-                    .map(Class::getName)
-                    .collect(Collectors.joining(","));
-
-                if (elements.length == 1) {
-                    arguments.add("--select-method=%s#%s(%s)".formatted(clazz.getName(), method.getName(), parameters));
-                    continue;
-                }
-
-                String iterations = Pattern.compile("\\d+")
-                    .matcher(elements[1])
-                    .replaceAll(match -> Integer.toString(Integer.parseInt(match.group()) - 1));
-
-                arguments.add("--select-iteration=method:%s#%s(%s)%s".formatted(clazz.getName(), method.getName(), parameters, iterations));
+            if (components.length == 2) {
+                arguments.add("--select-method=%s#%s(%s)".formatted(clazz.getName(), method.getName(), parameters));
+                continue;
             }
+
+            int iteration = Integer.parseInt(components[2]) - 1;
+
+            arguments.add("--select-iteration=method:%s#%s(%s)[%d]".formatted(clazz.getName(), method.getName(), parameters, iteration));
         }
     }
 
-    private static Class<?> findClass(String name) {
-        while (true) {
-            try {
-                return Class.forName(name);
-            } catch (Exception exception) {
-                int i = name.lastIndexOf('.');
+    private static Class<?> findClass(Path jar, String name) {
+        List<Class<?>> matches = ReflectionSupport.findAllClassesInClasspathRoot(
+                jar.toUri(),
+                clazz -> clazz.getSimpleName().equals(name),
+                __ -> true);
 
-                if (i == -1) {
-                    String message = "Could not find class %s.".formatted(name.replace('$', '.'));
-                    throw new JUnitException(message);
-                }
-
-                name = "%s$%s".formatted(name.substring(0, i), name.substring(i + 1));
-            }
-        }
-    }
-
-    private static Method findMethod(Class<?> clazz, String name) {
-        List<Method> methods = Arrays.stream(clazz.getDeclaredMethods())
-            .filter(method -> method.getName().equals(name))
-            .toList();
-
-        if (methods.size() != 1) {
-            String message = "Could not find method %s#%s.".formatted(clazz.getName().replace('$', '.'), name);
+        if (matches.size() != 1) {
+            String message = "Could not find class %s.".formatted(name);
             throw new JUnitException(message);
         }
 
-        return methods.getFirst();
+        return matches.getFirst();
+    }
+
+    private static Method findMethod(Class<?> clazz, String name) {
+        List<Method> matches = Arrays.stream(clazz.getDeclaredMethods())
+            .filter(method -> method.getName().equals(name))
+            .toList();
+
+        if (matches.size() != 1) {
+            String message = "Could not find method %s.%s.".formatted(clazz.getSimpleName(), name);
+            throw new JUnitException(message);
+        }
+
+        return matches.getFirst();
+    }
+
+    private static String getParameters(Method method) {
+        return Arrays.stream(method.getParameterTypes())
+            .map(Class::getName)
+            .collect(Collectors.joining(","));
     }
 }
