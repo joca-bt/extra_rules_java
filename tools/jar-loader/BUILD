@@ -5,6 +5,7 @@ java_library(
     srcs = glob(["src/main/java/**"]),
     javacopts = [
         "-Xlint:-deprecation",
+        "-Xlint:-removal",
         "-Xlint:-this-escape",
         "-Xlint:-try",
     ],
