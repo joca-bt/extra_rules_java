@@ -1,16 +1,17 @@
 package extrarulesjava.testrunner;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
-import javax.xml.parsers.DocumentBuilder;
+import java.util.Comparator;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
-import org.junit.platform.commons.JUnitException;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
@@ -18,90 +19,96 @@ import org.w3c.dom.NodeList;
 import static javax.xml.transform.OutputKeys.INDENT;
 
 class Reports {
+    private static final Comparator<Element> ELEMENT_COMPARATOR = Comparator.comparing(element -> element.getAttribute("name"));
+
     public static void generateReport(Path report) {
-        try {
-            Document document = readReports(report.getParent());
-            writeReport(document, report);
-        } catch (Exception exception) {
-            String message = "Could not generate report.";
-            throw new JUnitException(message, exception);
-        }
+        Document junitReport = Documents.readDocument(report.getParent().resolve("TEST-junit-jupiter.xml"));
+        Document bazelReport = generateReport(collectTests(junitReport));
+        Documents.writeDocument(bazelReport, report);
     }
 
     /**
-     * Fixes the name of a testcase:
-     *   - Appends the display name for parameterized tests.
-     *   - Removes parameters, since they break IntelliJ IDEA's navigation.
+     * Adjusts the name of a testcase:
+     *   - Removes parameters.
+     *   - Adds parameterization details, if applicable.
      */
-    private static void fixTestcaseName(Element testcase) {
-        String name = testcase.getAttribute("name");
-        String displayName = getTestcaseDisplayName(testcase);
-
-        name = name.substring(0, name.indexOf('('));
+    private static void adjustTestcaseName(Element testcase) {
+        String name = testcase.getAttribute("name").replaceAll("\\(.+", "");
+        String parameterizationDetails = testcase.getTextContent().replaceAll("(?s).+display-name: (\\V+).+", "$1");
 
         // Parameterized test?
-        if (displayName.startsWith("[")) {
-            name = "%s %s".formatted(name, displayName);
+        if (parameterizationDetails.startsWith("[")) {
+            name = "%s %s".formatted(name, parameterizationDetails);
         }
 
         testcase.setAttribute("name", name);
     }
 
-    /*
-     * <system-out><![CDATA[
-     * unique-id: ...
-     * display-name: ...
-     * ]]></system-out>
-     */
-    private static String getTestcaseDisplayName(Element testcase) {
-        Element systemOut = (Element) testcase.getElementsByTagName("system-out").item(0);
-        String[] properties = systemOut.getTextContent().trim().split("\n");
-        return properties[1].substring(14);
-    }
+    private static Map<String, Set<Element>> collectTests(Document document) {
+        Map<String, Set<Element>> tests = new TreeMap<>();
 
-    private static Document readReports(Path dir) throws Exception {
-        List<Path> files;
+        NodeList testcases = document.getElementsByTagName("testcase");
 
-        try (var stream = Files.list(dir)) {
-            files = stream
-                .filter(file -> file.getFileName().toString().matches("TEST-junit-.+\\.xml"))
-                .toList();
+        for (int i = 0, size = testcases.getLength(); i < size; i++) {
+            Element testcase = (Element) testcases.item(i);
+            adjustTestcaseName(testcase);
+
+            String group = testcase.getAttribute("classname").replaceAll(".+\\.", "");
+
+            tests.computeIfAbsent(group, __ -> new TreeSet<>(ELEMENT_COMPARATOR))
+                .add(testcase);
         }
 
-        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-        DocumentBuilder builder = factory.newDocumentBuilder();
-        Document document = builder.newDocument();
-        Element root = document.createElement("testsuites");
+        return tests;
+    }
 
-        document.appendChild(root);
+    private static Document generateReport(Map<String, Set<Element>> tests) {
+        Document document = Documents.newDocument();
 
-        for (var file : files) {
-            Document subdocument = builder.parse(file.toFile());
-            NodeList testsuites = subdocument.getElementsByTagName("testsuite");
+        Element testsuites = document.createElement("testsuites");
+        document.appendChild(testsuites);
 
-            for (int i = 0, sizei = testsuites.getLength(); i < sizei; i++) {
-                Element testsuite = (Element) testsuites.item(i);
-                NodeList testcases = testsuite.getElementsByTagName("testcase");
+        for (var group : tests.entrySet()) {
+            Element testsuite = document.createElement("testsuite");
+            testsuites.appendChild(testsuite);
 
-                for (int j = 0, sizej = testcases.getLength(); j < sizej; j++) {
-                    Element testcase = (Element) testcases.item(j);
-                    fixTestcaseName(testcase);
-                }
+            testsuite.setAttribute("name", group.getKey());
+            testsuite.setAttribute("hostname", "");
+            testsuite.setAttribute("timestamp", "");
 
-                root.appendChild(document.adoptNode(testsuite));
+            for (var test : group.getValue()) {
+                testsuite.appendChild(document.adoptNode(test));
             }
         }
 
         return document;
     }
 
-    private static void writeReport(Document document, Path file) throws Exception {
-        TransformerFactory factory = TransformerFactory.newInstance();
-        Transformer transformer = factory.newTransformer();
-        DOMSource source = new DOMSource(document);
-        StreamResult result = new StreamResult(file.toFile());
+    private static class Documents {
+        public static Document newDocument() {
+            try {
+                return DocumentBuilderFactory.newDefaultInstance().newDocumentBuilder().newDocument();
+            } catch (Exception exception) {
+                throw new RuntimeException(exception);
+            }
+        }
 
-        transformer.setOutputProperty(INDENT, "yes");
-        transformer.transform(source, result);
+        public static Document readDocument(Path file) {
+            try {
+                return DocumentBuilderFactory.newDefaultInstance().newDocumentBuilder().parse(file.toFile());
+            } catch (Exception exception) {
+                throw new RuntimeException(exception);
+            }
+        }
+
+        public static void writeDocument(Document document, Path file) {
+            try {
+                Transformer transformer = TransformerFactory.newDefaultInstance().newTransformer();
+                transformer.setOutputProperty(INDENT, "yes");
+                transformer.transform(new DOMSource(document), new StreamResult(file.toFile()));
+            } catch (Exception exception) {
+                throw new RuntimeException(exception);
+            }
+        }
     }
 }
