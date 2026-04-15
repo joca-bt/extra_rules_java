@@ -24,7 +24,7 @@ class Reports {
     public static void generateReport(Path report) {
         Document junitReport = Documents.readDocument(report.getParent().resolve("TEST-junit-jupiter.xml"));
         Document bazelReport = generateReport(collectTests(junitReport));
-        Documents.writeDocument(bazelReport, report);
+        Documents.writeDocument(report, bazelReport);
     }
 
     /**
@@ -101,7 +101,7 @@ class Reports {
             }
         }
 
-        public static void writeDocument(Document document, Path file) {
+        public static void writeDocument(Path file, Document document) {
             try {
                 Transformer transformer = TransformerFactory.newDefaultInstance().newTransformer();
                 transformer.setOutputProperty(INDENT, "yes");
