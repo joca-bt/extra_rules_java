@@ -5,7 +5,7 @@ module(
 )
 
 # https://github.com/bazelbuild/rules_java/
-bazel_dep(name = "rules_java", version = "9.0.3")
+bazel_dep(name = "rules_java", version = "9.1.0")
 
 # https://github.com/bazel-contrib/rules_jvm_external/
 bazel_dep(name = "rules_jvm_external", version = "6.10")
