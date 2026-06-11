@@ -26,10 +26,12 @@ import java.nio.channels.ClosedChannelException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 
 import extrarulesjava.jarloader.log.DebugLogger;
@@ -61,10 +63,6 @@ import extrarulesjava.jarloader.log.DebugLogger;
  * @since 3.2.0
  */
 public final class ZipContent implements Closeable {
-
-	private static final String META_INF = "META-INF/";
-
-	private static final byte[] SIGNATURE_SUFFIX = ".DSA".getBytes(StandardCharsets.UTF_8);
 
 	private static final DebugLogger debug = DebugLogger.get(ZipContent.class);
 
@@ -601,26 +599,16 @@ public final class ZipContent implements Closeable {
 				throw new IllegalStateException("Too many zip entries in " + source);
 			}
 			Loader loader = new Loader(source, null, data, centralDirectoryPos, (int) numberOfEntries);
-			ByteBuffer signatureNameSuffixBuffer = ByteBuffer.allocate(SIGNATURE_SUFFIX.length);
-			boolean hasJarSignatureFile = false;
+			SignatureFiles signatureFiles = new SignatureFiles();
 			long pos = centralDirectoryPos;
 			for (int i = 0; i < numberOfEntries; i++) {
 				ZipCentralDirectoryFileHeaderRecord centralRecord = ZipCentralDirectoryFileHeaderRecord.load(data, pos);
-				if (!hasJarSignatureFile) {
-					long filenamePos = pos + ZipCentralDirectoryFileHeaderRecord.FILE_NAME_OFFSET;
-					if (centralRecord.fileNameLength() > SIGNATURE_SUFFIX.length && ZipString.startsWith(loader.buffer,
-							data, filenamePos, centralRecord.fileNameLength(), META_INF) >= 0) {
-						signatureNameSuffixBuffer.clear();
-						data.readFully(signatureNameSuffixBuffer,
-								filenamePos + centralRecord.fileNameLength() - SIGNATURE_SUFFIX.length);
-						hasJarSignatureFile = Arrays.equals(SIGNATURE_SUFFIX, signatureNameSuffixBuffer.array());
-					}
-				}
+				signatureFiles.detect(centralRecord, data, pos, loader.buffer);
 				loader.add(centralRecord, pos, false);
 				pos += centralRecord.size();
 			}
 			long commentPos = locatedEocd.pos() + ZipEndOfCentralDirectoryRecord.COMMENT_OFFSET;
-			return loader.finish(kind, commentPos, eocd.commentLength(), hasJarSignatureFile);
+			return loader.finish(kind, commentPos, eocd.commentLength(), signatureFiles.detected());
 		}
 
 		/**
@@ -685,6 +673,54 @@ public final class ZipContent implements Closeable {
 				zip.data.close();
 				throw ex;
 			}
+		}
+
+	}
+
+	/**
+	 * Detection logic for signature files.
+	 */
+	private static class SignatureFiles {
+
+		private static final String META_INF = "META-INF/";
+
+		private static final List<byte[]> SUFFIXES = Stream.of(".DSA", ".RSA", ".EC")
+			.map((string) -> string.getBytes(StandardCharsets.UTF_8))
+			.toList();
+
+		private final ByteBuffer buffer;
+
+		private boolean detected;
+
+		SignatureFiles() {
+			this.buffer = ByteBuffer.allocate(4);
+		}
+
+		void detect(ZipCentralDirectoryFileHeaderRecord centralRecord, FileDataBlock data, long pos,
+				ByteBuffer loadeBuffer) throws IOException {
+			if (!this.detected) {
+				long filenamePos = pos + ZipCentralDirectoryFileHeaderRecord.FILE_NAME_OFFSET;
+				if (centralRecord.fileNameLength() > this.buffer.capacity() && ZipString.startsWith(loadeBuffer, data,
+						filenamePos, centralRecord.fileNameLength(), META_INF) >= 0) {
+					this.buffer.clear();
+					data.readFully(this.buffer, filenamePos + centralRecord.fileNameLength() - this.buffer.capacity());
+					this.detected = bufferEndsWithSignatureSuffix();
+				}
+			}
+		}
+
+		private boolean bufferEndsWithSignatureSuffix() {
+			byte[] bytes = this.buffer.array();
+			for (byte[] suffix : SUFFIXES) {
+				if (Arrays.equals(bytes, bytes.length - suffix.length, bytes.length, suffix, 0, suffix.length)) {
+					return true;
+				}
+			}
+			return false;
+		}
+
+		boolean detected() {
+			return this.detected;
 		}
 
 	}

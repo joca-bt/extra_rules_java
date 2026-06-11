@@ -1,8 +1,8 @@
-#!/bin/bash
+#!/usr/bin/bash
 
 shopt -s globstar
 
-VERSION='4.0.0'
+VERSION='4.1.0'
 
 mkdir -p src/main/java/extrarulesjava/jarloader/
 
@@ -13,9 +13,9 @@ tar -x -f spring-boot.tar.gz \
        spring-boot-${VERSION}/loader/spring-boot-loader/src/main/java/org/springframework/boot/loader/ \
        --strip-components=10
 
-rm -rf src/**/{jarmode,nio}/ \
-       src/**/{JarLauncher,JarModeRunner,PropertiesLauncher,SystemPropertyUtils,WarLauncher}.java \
-       src/**/package-info.java
+rm -r src/**/{jarmode,nio}/ \
+      src/**/{JarLauncher,JarModeRunner,PropertiesLauncher,SystemPropertyUtils,WarLauncher}.java \
+      src/**/package-info.java
 
 sed -i 's|org.springframework.boot.loader|extrarulesjava.jarloader|g' src/**/*.java
 
