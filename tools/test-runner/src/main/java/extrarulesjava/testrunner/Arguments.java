@@ -67,7 +67,7 @@ class Arguments {
         List<Class<?>> matches = ReflectionSupport.findAllClassesInClasspathRoot(
                 jar.toUri(),
                 clazz -> clazz.getSimpleName().equals(name),
-                __ -> true);
+                _ -> true);
 
         if (matches.size() != 1) {
             String message = "Could not find class %s.".formatted(name);

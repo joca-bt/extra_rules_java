@@ -55,7 +55,7 @@ class Reports {
 
             String group = testcase.getAttribute("classname").replaceAll(".+\\.", "");
 
-            tests.computeIfAbsent(group, __ -> new TreeSet<>(ELEMENT_COMPARATOR))
+            tests.computeIfAbsent(group, _ -> new TreeSet<>(ELEMENT_COMPARATOR))
                 .add(testcase);
         }
 
