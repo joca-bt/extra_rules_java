@@ -19,7 +19,7 @@ import org.w3c.dom.NodeList;
 import static javax.xml.transform.OutputKeys.INDENT;
 
 class Reports {
-    private static final Comparator<Element> ELEMENT_COMPARATOR = Comparator.comparing(element -> element.getAttribute("name"));
+    private static final Comparator<Element> TESTCASE_COMPARATOR = Comparator.comparing(testcase -> testcase.getAttribute("name"));
 
     public static void generateReport(Path report) {
         Document junitReport = Documents.readDocument(report.getParent().resolve("TEST-junit-jupiter.xml"));
@@ -55,7 +55,7 @@ class Reports {
 
             String group = testcase.getAttribute("classname").replaceAll(".+\\.", "");
 
-            tests.computeIfAbsent(group, _ -> new TreeSet<>(ELEMENT_COMPARATOR))
+            tests.computeIfAbsent(group, _ -> new TreeSet<>(TESTCASE_COMPARATOR))
                 .add(testcase);
         }
 
