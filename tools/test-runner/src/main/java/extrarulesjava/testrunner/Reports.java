@@ -27,23 +27,6 @@ class Reports {
         Documents.writeDocument(report, bazelReport);
     }
 
-    /**
-     * Adjusts the name of a testcase:
-     *   - Removes parameters.
-     *   - Adds parameterization details, if applicable.
-     */
-    private static void adjustTestcaseName(Element testcase) {
-        String name = testcase.getAttribute("name").replaceAll("\\(.+", "");
-        String parameterizationDetails = testcase.getTextContent().replaceAll("(?s).+display-name: (\\V+).+", "$1");
-
-        // Parameterized test?
-        if (parameterizationDetails.startsWith("[")) {
-            name = "%s %s".formatted(name, parameterizationDetails);
-        }
-
-        testcase.setAttribute("name", name);
-    }
-
     private static Map<String, Set<Element>> collectTests(Document document) {
         Map<String, Set<Element>> tests = new TreeMap<>();
 
@@ -51,11 +34,9 @@ class Reports {
 
         for (int i = 0, size = testcases.getLength(); i < size; i++) {
             Element testcase = (Element) testcases.item(i);
-            adjustTestcaseName(testcase);
+            testcase.setAttribute("name", getTestcaseMethod(testcase));
 
-            String group = testcase.getAttribute("classname").replaceAll(".+\\.", "");
-
-            tests.computeIfAbsent(group, _ -> new TreeSet<>(TESTCASE_COMPARATOR))
+            tests.computeIfAbsent(getTestcaseClass(testcase), _ -> new TreeSet<>(TESTCASE_COMPARATOR))
                 .add(testcase);
         }
 
@@ -68,20 +49,40 @@ class Reports {
         Element testsuites = document.createElement("testsuites");
         document.appendChild(testsuites);
 
-        for (var group : tests.entrySet()) {
+        for (var entry : tests.entrySet()) {
             Element testsuite = document.createElement("testsuite");
-            testsuites.appendChild(testsuite);
-
-            testsuite.setAttribute("name", group.getKey());
+            testsuite.setAttribute("name", entry.getKey());
             testsuite.setAttribute("hostname", "");
             testsuite.setAttribute("timestamp", "");
+            testsuites.appendChild(testsuite);
 
-            for (var test : group.getValue()) {
-                testsuite.appendChild(document.adoptNode(test));
+            for (var testcase : entry.getValue()) {
+                testsuite.appendChild(document.adoptNode(testcase));
             }
         }
 
         return document;
+    }
+
+    private static String getTestcaseClass(Element testcase) {
+        return testcase.getAttribute("classname").replaceAll(".+\\.", "");
+    }
+
+    private static String getTestcaseMethod(Element testcase) {
+        String method = testcase.getAttribute("name").replaceAll("\\(.+", "");
+
+        Element systemOut = (Element) testcase.getElementsByTagName("system-out").item(0);
+        String displayName = systemOut.getTextContent().trim().split("\n")[1].substring(14);
+
+        String[] components = displayName.split(" > ");
+        String last = components[components.length - 1];
+
+        // Parameterized method?
+        if (last.startsWith("[")) {
+            method = "%s %s".formatted(method, last);
+        }
+
+        return method;
     }
 
     private static class Documents {
