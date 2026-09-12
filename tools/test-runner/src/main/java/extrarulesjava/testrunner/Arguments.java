@@ -3,9 +3,9 @@ package extrarulesjava.testrunner;
 import java.lang.reflect.Method;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.junit.platform.commons.JUnitException;
 import org.junit.platform.commons.support.ReflectionSupport;
@@ -78,7 +78,7 @@ class Arguments {
     }
 
     private static Method findMethod(Class<?> clazz, String name) {
-        List<Method> matches = Arrays.stream(clazz.getDeclaredMethods())
+        List<Method> matches = Stream.of(clazz.getDeclaredMethods())
             .filter(method -> method.getName().equals(name))
             .toList();
 
@@ -91,7 +91,7 @@ class Arguments {
     }
 
     private static String getParameters(Method method) {
-        return Arrays.stream(method.getParameterTypes())
+        return Stream.of(method.getParameterTypes())
             .map(Class::getName)
             .collect(Collectors.joining(","));
     }
