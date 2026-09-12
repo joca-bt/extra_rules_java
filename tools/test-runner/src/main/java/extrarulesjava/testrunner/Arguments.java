@@ -10,6 +10,8 @@ import java.util.stream.Stream;
 import org.junit.platform.commons.JUnitException;
 import org.junit.platform.commons.support.ReflectionSupport;
 
+import static org.junit.platform.commons.support.HierarchyTraversalMode.BOTTOM_UP;
+
 class Arguments {
     public static String[] getArguments(Path jar, String filter, Path report) {
         List<String> arguments = new ArrayList<>();
@@ -86,9 +88,10 @@ class Arguments {
     }
 
     private static Method findMethod(Class<?> clazz, String name) {
-        List<Method> matches = Stream.of(clazz.getDeclaredMethods())
-            .filter(method -> method.getName().equals(name))
-            .toList();
+        List<Method> matches = ReflectionSupport.findMethods(
+                clazz,
+                method -> method.getName().equals(name),
+                BOTTOM_UP);
         return matches.size() == 1 ? matches.getFirst() : null;
     }
 
