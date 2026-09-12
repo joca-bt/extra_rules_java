@@ -40,16 +40,30 @@ class Arguments {
         filter = filter.replaceAll("\\$$", "");
 
         for (var selector : filter.split(",")) {
-            String[] components = selector.split("[.\\[\\]]");
+            // Split on the last . and on [].
+            String[] components = selector.split("\\.(?![^.]*\\.)|[\\[\\]]");
 
-            Class<?> clazz = findClass(jar, components[0]);
+            Class<?> clazz = findClass(jar, selector);
 
-            if (components.length == 1) {
+            if (clazz != null) {
                 arguments.add("--select-class=%s".formatted(clazz.getName()));
                 continue;
             }
 
+            clazz = findClass(jar, components[0]);
+
+            if (clazz == null) {
+                String message = "Unable to resolve selector %s.".formatted(selector);
+                throw new JUnitException(message);
+            }
+
             Method method = findMethod(clazz, components[1]);
+
+            if (method == null) {
+                String message = "Unable to resolve selector %s.".formatted(selector);
+                throw new JUnitException(message);
+            }
+
             String parameters = getParameters(method);
 
             if (components.length == 2) {
@@ -66,28 +80,16 @@ class Arguments {
     private static Class<?> findClass(Path jar, String name) {
         List<Class<?>> matches = ReflectionSupport.findAllClassesInClasspathRoot(
                 jar.toUri(),
-                clazz -> clazz.getSimpleName().equals(name),
+                clazz -> clazz.getSimpleName().equals(name) || clazz.getCanonicalName().equals(name),
                 _ -> true);
-
-        if (matches.size() != 1) {
-            String message = "Could not find class %s.".formatted(name);
-            throw new JUnitException(message);
-        }
-
-        return matches.getFirst();
+        return matches.size() == 1 ? matches.getFirst() : null;
     }
 
     private static Method findMethod(Class<?> clazz, String name) {
         List<Method> matches = Stream.of(clazz.getDeclaredMethods())
             .filter(method -> method.getName().equals(name))
             .toList();
-
-        if (matches.size() != 1) {
-            String message = "Could not find method %s.%s.".formatted(clazz.getSimpleName(), name);
-            throw new JUnitException(message);
-        }
-
-        return matches.getFirst();
+        return matches.size() == 1 ? matches.getFirst() : null;
     }
 
     private static String getParameters(Method method) {
