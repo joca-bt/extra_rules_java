@@ -52,8 +52,6 @@ class Reports {
         for (var entry : tests.entrySet()) {
             Element testsuite = document.createElement("testsuite");
             testsuite.setAttribute("name", entry.getKey());
-            testsuite.setAttribute("hostname", "");
-            testsuite.setAttribute("timestamp", "");
             testsuites.appendChild(testsuite);
 
             for (var testcase : entry.getValue()) {
