@@ -65,11 +65,11 @@ class Reports {
     }
 
     private static String getTestcaseClass(Element testcase) {
-        return testcase.getAttribute("classname").replaceAll(".+\\.", "");
+        return testcase.getAttribute("classname").replaceFirst(".+\\.", "");
     }
 
     private static String getTestcaseMethod(Element testcase) {
-        String method = testcase.getAttribute("name").replaceAll("\\(.+", "");
+        String method = testcase.getAttribute("name").replaceFirst("\\(.+", "");
 
         Element systemOut = (Element) testcase.getElementsByTagName("system-out").item(0);
         String displayName = systemOut.getTextContent().trim().split("\n")[1].substring(14);
