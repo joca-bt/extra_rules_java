@@ -41,7 +41,7 @@ class Arguments {
         // Remove artifacts added by IntelliJ IDEA.
         filter = filter.replaceAll("\\$", "");
 
-        for (var selector : filter.split(",")) {
+        for (var selector : filter.split("[,|]")) {
             // Split on the last . and on [].
             String[] components = selector.split("\\.(?![^.]*\\.)|[\\[\\]]");
 
