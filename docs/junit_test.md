@@ -4,7 +4,7 @@
 junit_test(name, **kwargs)
 ```
 
-Builds JUnit 6 tests.
+Runs JUnit 6 tests.
 
 This is a drop-in replacement for [`java_test`](https://bazel.build/reference/be/java#java_test) that runs tests using a [JUnit 6 test runner](/tools/test-runner/README.md).
 
